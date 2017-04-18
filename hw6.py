@@ -9,9 +9,14 @@ conn = None
 def connect():
     try:
         global conn
+<<<<<<< HEAD
         conn = psycopg2.connect("dbname='postgres' user='ricedb' host='localhost' password='whsoo2p9'")
         conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
     except psycopg2.Error:
+=======
+        conn = psycopg2.connect("dbname='' user='' host='' password=''")
+    except RuntimeError:
+>>>>>>> origin/master
         print("Unable to connect to the database")
 
     global cursor
