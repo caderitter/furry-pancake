@@ -27,6 +27,7 @@ CREATE TABLE Participant (
     gender VARCHAR(1) NOT NULL,
     org_id VARCHAR(10),
     name VARCHAR(50),
+    CONSTRAINT chk_gender CHECK (gender IN ('M', 'F')),
     FOREIGN KEY (org_id) REFERENCES Org (id)
 );
 
@@ -43,6 +44,7 @@ CREATE TABLE Event (
     gender VARCHAR(1) NOT NULL,
     stroke VARCHAR(50),
     distance INT,
+    CONSTRAINT chk_gender CHECK (gender IN ('M', 'F')),
     FOREIGN KEY (stroke) REFERENCES Stroke (stroke),
     FOREIGN KEY (distance) REFERENCES Distance (distance)
 );
@@ -176,15 +178,17 @@ LANGUAGE plpgsql;
 
 DROP FUNCTION IF EXISTS UpsertSwim (INT, VARCHAR(10), VARCHAR(50), VARCHAR(10), FLOAT);
 CREATE OR REPLACE FUNCTION UpsertSwim (s_heat_id INT, s_event_id VARCHAR(10), s_meet_name VARCHAR(50),
-                                       s_participant_id VARCHAR(10), s_time FLOAT)
-    RETURNS VOID
+                                       s_participant_id VARCHAR(10), s_time FLOAT = NULL)
+RETURNS VOID
 AS $$
     BEGIN
+     IF (SELECT gender FROM Participant where Participant.id = s_participant_id) = (SELECT gender FROM Event WHERE Event.id = s_event_id) THEN
         INSERT INTO Swim (heat_id, event_id, meet_name, participant_id, time)
         VALUES (s_heat_id, s_event_id, s_meet_name, s_participant_id, s_time)
         ON CONFLICT (heat_id, event_id, meet_name, participant_id) DO UPDATE SET heat_id = EXCLUDED.heat_id,
         event_id = EXCLUDED.event_id, meet_name = EXCLUDED.meet_name, participant_id = EXCLUDED.participant_id,
         time = EXCLUDED.time;
+        END IF;
     END $$
 LANGUAGE plpgsql;
 
@@ -216,6 +220,21 @@ AS $$
         From Without_ranks wo LEFT OUTER JOIN With_ranks wi
         ON wo.event_id=wi.event_id AND wo.heat_id = wi.heat_id AND wo.swimmer_id = wi.swimmer_id
         WHERE wo.meet_name = m AND wo.swimmer_id = p
+        ORDER BY event_id, heat_id;
+    END $$
+LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS SchoolMeetHeetSheet (VARCHAR(10), VARCHAR(50));
+CREATE OR REPLACE FUNCTION SchoolMeetHeetSheet(s VARCHAR(10), m VARCHAR(50))
+RETURNS TABLE (event_id VARCHAR(10), event_gender VARCHAR(1), stroke VARCHAR(50), distance INT,
+               heat_id INT, swimmer_id VARCHAR(10), name VARCHAR(50), swim_time FLOAT, event_rank bigint)
+AS $$
+    BEGIN
+        RETURN QUERY SELECT wo.event_id, wo.event_gender, wo.stroke, wo.distance, wo.heat_id, wo.swimmer_id,
+        wo.name, wo.time, wi.rank AS event_rank
+        From Without_ranks wo LEFT OUTER JOIN With_ranks wi
+        ON wo.event_id=wi.event_id AND wo.heat_id = wi.heat_id AND wo.swimmer_id = wi.swimmer_id
+        WHERE wo.meet_name = m AND wo.organization_id = s
         ORDER BY event_id, heat_id;
     END $$
 LANGUAGE plpgsql;
@@ -326,5 +345,93 @@ AS $$
         AND    attnum > 0
         AND    NOT attisdropped
         ORDER  BY attnum;
+    END $$
+LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS GetOrg ();
+CREATE OR REPLACE FUNCTION GetOrg ()
+RETURNS TABLE(id VARCHAR(10), name VARCHAR(50), is_univ BOOLEAN)
+AS $$
+    BEGIN
+        RETURN QUERY SELECT *
+        FROM Org
+        ORDER BY id;
+    END $$
+LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS GetMeet ();
+CREATE OR REPLACE FUNCTION GetMeet ()
+RETURNS TABLE(name VARCHAR(50), start_date DATE, num_days INT, org_id VARCHAR(10))
+AS $$
+    BEGIN
+        RETURN QUERY SELECT *
+        FROM Meet
+        ORDER BY name;
+    END $$
+LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS GetParticipant ();
+CREATE OR REPLACE FUNCTION GetParticipant ()
+RETURNS TABLE(id VARCHAR(10), gender VARCHAR(1), org_id VARCHAR(10), name VARCHAR(50))
+AS $$
+    BEGIN
+        RETURN QUERY SELECT *
+        FROM Participant
+        ORDER BY id;
+    END $$
+LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS GetStroke ();
+CREATE OR REPLACE FUNCTION GetStroke ()
+RETURNS TABLE(stroke VARCHAR(50))
+AS $$
+    BEGIN
+        RETURN QUERY SELECT *
+        FROM Stroke
+        ORDER BY stroke;
+    END $$
+LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS GetDistance ();
+CREATE OR REPLACE FUNCTION GetDistance ()
+RETURNS TABLE(distance INT)
+AS $$
+    BEGIN
+        RETURN QUERY SELECT *
+        FROM Distance
+        ORDER BY distance;
+    END $$
+LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS GetEvent ();
+CREATE OR REPLACE FUNCTION GetEvent ()
+RETURNS TABLE(id VARCHAR(10), gender VARCHAR(1), stroke VARCHAR(50), distance INT)
+AS $$
+    BEGIN
+        RETURN QUERY SELECT *
+        FROM Event
+        ORDER BY id;
+    END $$
+LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS GetHeat ();
+CREATE OR REPLACE FUNCTION GetHeat ()
+RETURNS TABLE(id INT, event_id VARCHAR(10), meet_name VARCHAR(50))
+AS $$
+    BEGIN
+        RETURN QUERY SELECT *
+        FROM Heat
+        ORDER BY id;
+    END $$
+LANGUAGE plpgsql;
+
+DROP FUNCTION IF EXISTS GetSwim ();
+CREATE OR REPLACE FUNCTION GetSwim ()
+RETURNS TABLE(heat_id INT, event_id VARCHAR(10), meet_name VARCHAR(50), participant_id VARCHAR(10), t FLOAT)
+AS $$
+    BEGIN
+        RETURN QUERY SELECT *
+        FROM Swim
+        ORDER BY event_id;
     END $$
 LANGUAGE plpgsql;
