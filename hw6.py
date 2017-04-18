@@ -9,7 +9,7 @@ conn = None
 def connect():
     try:
         global conn
-        conn = psycopg2.connect("dbname='postgres' user='ricedb' host='localhost' password='whsoo2p9'")
+        conn = psycopg2.connect("dbname='' user='' host='' password=''")
     except RuntimeError:
         print("Unable to connect to the database")
 
